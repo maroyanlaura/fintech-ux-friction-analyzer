@@ -43,7 +43,7 @@ function App() {
         }
         setStatus('error');
       }
-    }, 1150);
+    }, 220);
   }
 
   function handleReset() {

@@ -35,6 +35,8 @@ export interface AnalysisResult {
   breakdown: AnalysisBreakdown;
   frictionPoints: FrictionPoint[];
   recommendations: string[];
+  matchedStepCount: number;
+  lowCoverage: boolean;
 }
 
 export class FlowAnalysisError extends Error {

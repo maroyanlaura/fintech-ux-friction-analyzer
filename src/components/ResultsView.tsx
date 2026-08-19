@@ -3,7 +3,14 @@ import type { AnalysisResult, FrictionPoint, MetricBreakdown } from '../types';
 import { RiskBadge, SeverityBadge } from './Badges';
 import { ScoreGauge } from './ScoreGauge';
 import { FlowVisualization } from './FlowVisualization';
-import { severityWeight } from '../lib/analyzeFlow';
+import { severityWeight, CHECK_CATEGORIES } from '../lib/analyzeFlow';
+import { formatReportAsText } from '../lib/formatReport';
+
+function joinWithAnd(items: string[]): string {
+  if (items.length === 0) return '';
+  if (items.length === 1) return items[0];
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
+}
 
 interface ResultsViewProps {
   result: AnalysisResult;
@@ -60,6 +67,7 @@ function FrictionPointCard({ point, stepLabel, onView }: { point: FrictionPoint;
 
 export function ResultsView({ result, onReset }: ResultsViewProps) {
   const [selectedStep, setSelectedStep] = useState<number>(result.steps[0]?.index ?? 0);
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
 
   const sortedPoints = [...result.frictionPoints].sort(
     (a, b) => severityWeight(b.severity) - severityWeight(a.severity),
@@ -71,6 +79,17 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
     el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }
 
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(formatReportAsText(result));
+      setCopyState('copied');
+    } catch {
+      setCopyState('error');
+    } finally {
+      window.setTimeout(() => setCopyState('idle'), 2200);
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-12 md:py-16">
       <div className="mb-10 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
@@ -78,28 +97,99 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-brand-text">Analysis complete</p>
           <h1 className="mt-2 text-2xl font-semibold text-text-primary md:text-3xl">Friction report</h1>
         </div>
-        <button
-          type="button"
-          onClick={onReset}
-          className="press-feedback inline-flex h-10 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleCopy}
+            aria-live="polite"
+            className="press-feedback inline-flex h-10 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
+          >
+            {copyState === 'idle' && (
+              <>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <rect x="5.5" y="5.5" width="8" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+                  <path
+                    d="M3.5 10.5v-6a1.5 1.5 0 0 1 1.5-1.5h6"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                Copy report
+              </>
+            )}
+            {copyState === 'copied' && (
+              <>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path
+                    d="M3 8.5l3 3 7-7"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Copied
+              </>
+            )}
+            {copyState === 'error' && "Couldn't copy"}
+          </button>
+          <button
+            type="button"
+            onClick={onReset}
+            className="press-feedback inline-flex h-10 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path
+                d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3.2h-3.2"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            Analyze another flow
+          </button>
+        </div>
+      </div>
+
+      {result.lowCoverage && (
+        <div
+          role="status"
+          className="mb-8 flex items-start gap-3 rounded-xl border border-warning-border bg-warning-bg p-4"
         >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <svg
+            className="mt-0.5 h-4 w-4 shrink-0 text-warning-text"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+          >
             <path
-              d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3.2h-3.2"
+              d="M8 5v3.5M8 11h.007M2.5 13h11a1 1 0 0 0 .87-1.5l-5.5-9.5a1 1 0 0 0-1.74 0l-5.5 9.5A1 1 0 0 0 2.5 13Z"
               stroke="currentColor"
               strokeWidth="1.4"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           </svg>
-          Analyze another flow
-        </button>
-      </div>
+          <p className="text-sm leading-relaxed text-warning-text">
+            <span className="font-medium">Low analysis confidence.</span> Only {result.matchedStepCount} of{' '}
+            {result.steps.length} steps matched a pattern this tool recognizes — this can happen with
+            unrecognized wording or a language other than English. The score and findings below may be
+            incomplete.
+          </p>
+        </div>
+      )}
 
       <section className="grid grid-cols-1 gap-10 rounded-2xl border border-border bg-surface p-6 md:grid-cols-[auto_1fr] md:gap-12 md:p-8">
         <div className="flex flex-col items-center gap-3 md:items-start">
           <ScoreGauge score={result.frictionScore} riskLevel={result.riskLevel} />
           <RiskBadge level={result.riskLevel} />
+          {!result.lowCoverage && (
+            <p className="tabular text-xs text-text-muted">
+              {result.matchedStepCount} of {result.steps.length} steps matched a known pattern
+            </p>
+          )}
         </div>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <MetricBar metric={result.breakdown.cognitiveLoad} />
@@ -128,8 +218,9 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
           <span className="tabular text-base font-normal text-text-muted">({sortedPoints.length})</span>
         </h2>
         {sortedPoints.length === 0 ? (
-          <p className="mt-3 text-sm text-text-secondary">
-            No friction points were detected for this flow based on the current rule set.
+          <p className="mt-3 text-sm leading-relaxed text-text-secondary">
+            This flow passed every check we ran — {joinWithAnd(CHECK_CATEGORIES)}. As optional additional
+            diligence, consider validating it with a small usability test.
           </p>
         ) : (
           <ul className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
