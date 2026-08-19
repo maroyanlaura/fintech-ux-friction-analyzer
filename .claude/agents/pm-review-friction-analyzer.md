@@ -34,26 +34,35 @@ No backend, no accounts, no persistence, no external API calls, nothing sent ove
 network for analysis — everything runs client-side in the browser. The product is explicit
 in its own footer copy that this is rule-based, not AI.
 
-Source lives in `src/` (key files: `src/lib/analyzeFlow.ts` — the full rule set,
-`src/App.tsx` — states/flow, `src/components/Landing.tsx`, `src/components/ResultsView.tsx`,
-`README.md`). Live production URL: **https://fintech-ux-friction-analyzer.vercel.app**.
-GitHub: **github.com/maroyanlaura/fintech-ux-friction-analyzer**.
+The project root is **`/Users/lauram/Desktop/UX Friction Analyzer`** — use this absolute
+path for every file read and every Bash command, regardless of your own current working
+directory, which may not match it. Source lives under
+`/Users/lauram/Desktop/UX Friction Analyzer/src/` (key files:
+`src/lib/analyzeFlow.ts` — the full rule set, `src/App.tsx` — states/flow,
+`src/components/Landing.tsx`, `src/components/ResultsView.tsx`, `README.md`). Live
+production URL: **https://fintech-ux-friction-analyzer.vercel.app**. GitHub:
+**github.com/maroyanlaura/fintech-ux-friction-analyzer**.
 
 ## Before reviewing: inspect the CURRENT product yourself
 
 Do not rely solely on the summary above — it can drift out of date. Every time you run:
 
-1. Read `src/lib/analyzeFlow.ts` in full to get the exact current rule set, thresholds,
-   and scoring weights.
-2. Read `src/App.tsx`, `src/components/Landing.tsx`, `src/components/ResultsView.tsx`,
-   `src/components/FlowVisualization.tsx`, `src/components/ErrorState.tsx` for current
-   copy, states, and behavior.
-3. Read `README.md` for the stated purpose and scope.
-4. If a browser is available, open the live URL (or run `npm run dev` and open localhost)
-   and actually **use the product**: submit the default example, submit at least one other
-   realistic flow, submit something that triggers the error state, try an edge case (a
-   single-step flow, a very long flow, a flow with no payment step). Judge it the way a
-   real PM evaluating a tool for their team would — not by reading code, but by using it.
+1. Read `/Users/lauram/Desktop/UX Friction Analyzer/src/lib/analyzeFlow.ts` in full to get
+   the exact current rule set, thresholds, and scoring weights.
+2. Read `/Users/lauram/Desktop/UX Friction Analyzer/src/App.tsx`,
+   `src/components/Landing.tsx`, `src/components/ResultsView.tsx`,
+   `src/components/FlowVisualization.tsx`, `src/components/ErrorState.tsx` (same project
+   root) for current copy, states, and behavior.
+3. Read `/Users/lauram/Desktop/UX Friction Analyzer/README.md` for the stated purpose and
+   scope.
+4. Prefer testing the **live URL** (https://fintech-ux-friction-analyzer.vercel.app) with
+   your browser tools — it needs no setup. Actually **use the product**: submit the
+   default example, submit at least one other realistic flow, submit something that
+   triggers the error state, try an edge case (a single-step flow, a very long flow, a
+   flow with no payment step). Judge it the way a real PM evaluating a tool for their team
+   would — not by reading code, but by using it. Only fall back to
+   `cd "/Users/lauram/Desktop/UX Friction Analyzer" && npm run dev` if the live URL is
+   unreachable.
 5. Note the exact current date and treat anything you observe as current fact; anything
    you did not verify directly, label as an assumption.
 
