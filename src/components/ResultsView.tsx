@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { AnalysisResult, FrictionPoint, MetricBreakdown } from '../types';
+import type { AnalysisResult, FrictionPoint, MetricBreakdown, Severity } from '../types';
 import { RiskBadge, SeverityBadge } from './Badges';
 import { ScoreGauge } from './ScoreGauge';
 import { FlowVisualization } from './FlowVisualization';
@@ -32,6 +32,55 @@ function MetricBar({ metric }: { metric: MetricBreakdown }) {
         />
       </div>
       <p className="mt-1.5 text-xs leading-relaxed text-text-muted">{metric.detail}</p>
+      {metric.correlation && (
+        <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-brand-text">
+          <svg className="mt-0.5 h-3 w-3 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path
+              d="M6.3 9.7a2.9 2.9 0 0 0 4.1 0l1.9-1.9a2.9 2.9 0 0 0-4.1-4.1l-.7.6M9.7 6.3a2.9 2.9 0 0 0-4.1 0l-1.9 1.9a2.9 2.9 0 0 0 4.1 4.1l.7-.6"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span>{metric.correlation}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ScoreProvenance({ points }: { points: FrictionPoint[] }) {
+  if (points.length === 0) {
+    return (
+      <p className="max-w-[260px] text-center text-xs leading-relaxed text-text-muted md:text-left">
+        No friction points were detected — this score reflects a clean flow, not an aggregate of contributing
+        issues.
+      </p>
+    );
+  }
+
+  const counts: Record<Severity, number> = { high: 0, medium: 0, low: 0 };
+  points.forEach((p) => {
+    counts[p.severity] += 1;
+  });
+  const summary = (['high', 'medium', 'low'] as Severity[])
+    .filter((s) => counts[s] > 0)
+    .map((s) => `${counts[s]} ${s}`)
+    .join(', ');
+
+  return (
+    <div className="max-w-[280px] text-center md:text-left">
+      <p className="text-xs font-medium text-text-secondary">
+        Based on {points.length} friction point{points.length === 1 ? '' : 's'} ({summary})
+      </p>
+      <ul className="mt-1.5 flex flex-col gap-1">
+        {points.map((p) => (
+          <li key={p.id} className="text-xs leading-relaxed text-text-muted">
+            {p.title}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -100,6 +149,7 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
         <div className="flex flex-col items-center gap-3 md:items-start">
           <ScoreGauge score={result.frictionScore} riskLevel={result.riskLevel} />
           <RiskBadge level={result.riskLevel} />
+          <ScoreProvenance points={sortedPoints} />
         </div>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <MetricBar metric={result.breakdown.cognitiveLoad} />

@@ -189,6 +189,16 @@ export function analyzeFlow(rawInput: string): AnalysisResult {
     });
   }
 
+  // ---- Correlation between breakdown metrics (explanatory only, does not affect scores) ----
+  // Reuses the same significance thresholds as the friction-point rules above, so a
+  // correlation is only surfaced when its driver was already judged noteworthy.
+  const correlationNotes = buildCorrelationNotes({
+    stepDriver: steps.length >= 5,
+    authDriver: authSteps.length >= 2,
+    manualDriver: manualEntrySteps.length >= 3,
+    otpDriver: otpSteps.length >= 1,
+  });
+
   // ---- Breakdown metrics (0-100, higher = more friction) ----
   const numberOfStepsScore = clamp((steps.length / 10) * 100);
 
@@ -216,11 +226,13 @@ export function analyzeFlow(rawInput: string): AnalysisResult {
       'Cognitive Load',
       cognitiveLoadScore,
       `${manualEntrySteps.length} manual decision${manualEntrySteps.length === 1 ? '' : 's'}, ${authSteps.length} identity check${authSteps.length === 1 ? '' : 's'}.`,
+      correlationNotes.cognitiveLoad,
     ),
     numberOfSteps: metric(
       'Number of Steps',
       numberOfStepsScore,
       `${steps.length} step${steps.length === 1 ? '' : 's'} from start to completion.`,
+      correlationNotes.numberOfSteps,
     ),
     errorRisk: metric(
       'Error Risk',
@@ -230,11 +242,13 @@ export function analyzeFlow(rawInput: string): AnalysisResult {
         : paymentSteps.length > 0
           ? 'No error or retry path stated for the transaction.'
           : 'No transaction step detected.',
+      correlationNotes.errorRisk,
     ),
     userEffort: metric(
       'User Effort',
       userEffortScore,
       `${manualEntrySteps.length} field${manualEntrySteps.length === 1 ? '' : 's'} to fill, ${otpSteps.length} code${otpSteps.length === 1 ? '' : 's'} to retrieve.`,
+      correlationNotes.userEffort,
     ),
   };
 
@@ -258,8 +272,89 @@ export function analyzeFlow(rawInput: string): AnalysisResult {
   };
 }
 
-function metric(label: string, score: number, detail: string): MetricBreakdown {
-  return { label, score, detail };
+function metric(label: string, score: number, detail: string, correlation?: string): MetricBreakdown {
+  return { label, score, detail, correlation };
+}
+
+function joinWithAnd(items: string[]): string {
+  if (items.length <= 1) return items.join('');
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
+}
+
+type MetricKey = 'cognitiveLoad' | 'numberOfSteps' | 'errorRisk' | 'userEffort';
+
+const METRIC_LABEL: Record<MetricKey, string> = {
+  cognitiveLoad: 'Cognitive Load',
+  numberOfSteps: 'Number of Steps',
+  errorRisk: 'Error Risk',
+  userEffort: 'User Effort',
+};
+
+/**
+ * Builds a per-metric explanatory note describing when that metric's score moves together
+ * with another displayed metric because they are driven by the same underlying factor in
+ * the flow (e.g. the same step count, or the same OTP step). Purely explanatory — it does
+ * not read or alter any metric's calculated score.
+ */
+function buildCorrelationNotes(drivers: {
+  stepDriver: boolean;
+  authDriver: boolean;
+  manualDriver: boolean;
+  otpDriver: boolean;
+}): Record<MetricKey, string | undefined> {
+  const links = new Map<MetricKey, Map<MetricKey, Set<string>>>();
+
+  const link = (a: MetricKey, b: MetricKey, reason: string) => {
+    if (!links.has(a)) links.set(a, new Map());
+    if (!links.get(a)!.has(b)) links.get(a)!.set(b, new Set());
+    links.get(a)!.get(b)!.add(reason);
+
+    if (!links.has(b)) links.set(b, new Map());
+    if (!links.get(b)!.has(a)) links.get(b)!.set(a, new Set());
+    links.get(b)!.get(a)!.add(reason);
+  };
+
+  // Number of Steps feeds directly into both Cognitive Load and User Effort's formulas,
+  // so a notably long flow (the same threshold used for the "Flow has N steps" friction
+  // point) moves all three together.
+  if (drivers.stepDriver) {
+    link('numberOfSteps', 'cognitiveLoad', 'step count');
+    link('numberOfSteps', 'userEffort', 'step count');
+    link('cognitiveLoad', 'userEffort', 'step count');
+  }
+  // Repeated authentication (the same threshold as the "authenticates more than once"
+  // friction point) adds to both Cognitive Load and User Effort.
+  if (drivers.authDriver) {
+    link('cognitiveLoad', 'userEffort', 'repeated authentication');
+  }
+  // A high manual-entry load (the same threshold as the "manual input required" friction
+  // point) adds to both Cognitive Load and User Effort.
+  if (drivers.manualDriver) {
+    link('cognitiveLoad', 'userEffort', 'manual entry load');
+  }
+  // An OTP step adds to both Cognitive Load and Error Risk.
+  if (drivers.otpDriver) {
+    link('cognitiveLoad', 'errorRisk', 'the OTP step');
+  }
+
+  const notes: Record<MetricKey, string | undefined> = {
+    cognitiveLoad: undefined,
+    numberOfSteps: undefined,
+    errorRisk: undefined,
+    userEffort: undefined,
+  };
+
+  for (const [key, others] of links) {
+    const clauses = [...others].map(
+      ([otherKey, reasons]) => `${METRIC_LABEL[otherKey]} (${[...reasons].join(', ')})`,
+    );
+    if (clauses.length > 0) {
+      notes[key] = `Shares underlying drivers with ${joinWithAnd(clauses)}.`;
+    }
+  }
+
+  return notes;
 }
 
 function buildRecommendations(points: FrictionPoint[]): string[] {

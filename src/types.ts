@@ -18,6 +18,8 @@ export interface MetricBreakdown {
   label: string;
   score: number;
   detail: string;
+  /** Explanatory note when this metric's score shares an underlying driver with another metric. Does not affect the score. */
+  correlation?: string;
 }
 
 export interface AnalysisBreakdown {
