@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
+import { CHECK_CATEGORIES } from '../lib/analyzeFlow';
 
 interface LandingProps {
   onAnalyze: (flowText: string) => void;
@@ -21,6 +22,10 @@ const EXAMPLES = [
   {
     label: 'Account top-up',
     text: 'Open app → Biometric login → Dashboard → Add money → Select bank account → Enter amount → Confirm → OTP → Success',
+  },
+  {
+    label: 'Download statement',
+    text: 'Open app → Login → Select statement period → Choose export format',
   },
 ];
 
@@ -101,6 +106,18 @@ export function Landing({ onAnalyze, initialValue = '' }: LandingProps) {
         <span>Flagged friction points</span>
         <span aria-hidden="true">·</span>
         <span>Actionable recommendations</span>
+      </div>
+
+      <div className="mt-8 border-t border-border pt-6">
+        <h2 className="mb-3 text-sm font-medium text-text-primary">What we check</h2>
+        <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-text-secondary">
+          {CHECK_CATEGORIES.map((category) => (
+            <li key={category} className="flex items-center gap-1.5">
+              <span className="h-1 w-1 rounded-full bg-text-muted" aria-hidden="true" />
+              {category}
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );
